@@ -4,16 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SafePassage Network</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
-      // Noise suppression for external extension errors
+      // Noise suppression for external extension errors and resource loading
       (function() {
         const IGNORED_ERRORS = [
           'FrameDoesNotExistError',
           'runtime.lastError',
           'The message port closed before a response was received',
-          'Could not establish connection. Receiving end does not exist'
+          'Could not establish connection. Receiving end does not exist',
+          'back/forward cache',
+          'chrome-extension://',
+          'web_accessible_resources',
+          'chext_driver',
+          'chext_loader',
+          'extensionState.js',
+          'heuristicsRedefinitions.js',
+          'utils.js',
+          'ERR_FAILED',
+          'ERR_FILE_NOT_FOUND'
         ];
 
         const shouldIgnore = (msg) => {
@@ -29,6 +38,14 @@
           originalConsoleError.apply(console, args);
         };
 
+        // Suppress console.warn for specific warnings
+        const originalConsoleWarn = console.warn;
+        console.warn = function(...args) {
+          const argStr = args.join(' ');
+          if (argStr.includes('cdn.tailwindcss.com')) return; // Will be fixed with proper Tailwind setup
+          originalConsoleWarn.apply(console, args);
+        };
+
         // Suppress unhandled promise rejections
         window.addEventListener('unhandledrejection', function(event) {
           if (shouldIgnore(event.reason) || shouldIgnore(event.reason?.message)) {
@@ -39,48 +56,26 @@
 
         // Suppress global errors
         window.addEventListener('error', function(event) {
-          if (shouldIgnore(event.message) || shouldIgnore(event.error)) {
+          if (shouldIgnore(event.message) || shouldIgnore(event.error) || shouldIgnore(event.filename)) {
             event.preventDefault();
             event.stopImmediatePropagation();
+            return true;
           }
-        });
-      })();
-    </script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-            },
-            colors: {
-              brand: {
-                50: '#f0fdfa',
-                100: '#ccfbf1',
-                500: '#14b8a6', // Teal for safety/calm
-                600: '#0d9488',
-                700: '#0f766e',
-                900: '#134e4a',
-              },
-              accent: {
-                500: '#f43f5e', // Rose for alerts/actions
-              }
+        }, true);
+
+        // Suppress resource loading errors from extensions
+        window.addEventListener('error', function(event) {
+          if (event.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK')) {
+            const src = event.target.src || event.target.href;
+            if (src && shouldIgnore(src)) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              return true;
             }
           }
-        }
-      }
+        }, true);
+      })();
     </script>
-    <style>
-      body {
-        background-color: #f8fafc;
-      }
-      /* Custom scrollbar for markdown content */
-      .prose h2 { font-size: 1.25rem; font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; color: #134e4a; }
-      .prose h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; color: #0f766e; }
-      .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
-      .prose p { margin-bottom: 1em; line-height: 1.6; }
-      .prose strong { color: #111827; font-weight: 600; }
-    </style>
   <script type="importmap">
 {
   "imports": {

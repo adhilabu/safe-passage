@@ -42,16 +42,41 @@ const AuthPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Client-side validation
+        if (!email.trim()) {
+            showNotification('Validation Error', 'Please enter your email address.', 'error');
+            return;
+        }
+
+        if (!password.trim()) {
+            showNotification('Validation Error', 'Please enter your password.', 'error');
+            return;
+        }
+
+        if (isSignUp && !name.trim()) {
+            showNotification('Validation Error', 'Please enter your name.', 'error');
+            return;
+        }
+
+        if (isSignUp && password.length < 6) {
+            showNotification('Validation Error', 'Password must be at least 6 characters long.', 'error');
+            return;
+        }
+
         setLoading(true);
 
         try {
             if (isSignUp) {
-                await signUp(email, password, { name });
+                await signUp(email, password, { name: name.trim() });
+                showNotification('Success!', 'Account created successfully. Welcome to SafePassage Network!', 'success');
             } else {
                 await signIn(email, password);
+                // Don't show success notification for sign in - user will see the app
             }
         } catch (err: any) {
-            showNotification('Authentication Failed', err.message || 'An unexpected error occurred', 'error');
+            const errorTitle = isSignUp ? 'Sign Up Failed' : 'Sign In Failed';
+            showNotification(errorTitle, err.message || 'An unexpected error occurred. Please try again.', 'error');
         } finally {
             setLoading(false);
         }

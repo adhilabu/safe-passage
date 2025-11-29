@@ -1,7 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { SafetyPriority, ItineraryResult, IcebreakerResult } from '../types';
 
-const apiKey = process.env.API_KEY || '';
+const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+console.log('🔑 API Key loaded:', apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING');
 const ai = new GoogleGenAI({ apiKey });
 
 const MODEL_NAME = 'gemini-2.5-flash';
@@ -24,24 +25,29 @@ const extractSources = (groundingChunks: any[]): { title: string; uri: string }[
 
 export const generateEthicalItinerary = async (
   destination: string,
-  priority: SafetyPriority,
+  priorities: SafetyPriority | SafetyPriority[],
   days: number,
   itineraryType: string = 'General Sightseeing'
 ): Promise<ItineraryResult> => {
   if (!apiKey) throw new Error("API Key missing");
 
+  // Handle both single priority (backward compatibility) and multiple priorities
+  const priorityList = Array.isArray(priorities) ? priorities : [priorities];
+  const priorityText = priorityList.join(', ');
+
   const prompt = `
     Create a detailed ${days}-day travel itinerary for ${destination}.
     
-    CRITICAL USER PRIORITY: ${priority}.
+    CRITICAL USER PRIORITIES: ${priorityText}.
     TRAVEL STYLE/TYPE: ${itineraryType}
     
     MANDATORY GUIDELINES (Responsible AI):
-    1. SAFETY FIRST: Filter recommendations through the lens of ${priority}. Identify well-lit areas, safe transport, and specific safety checks (e.g., locking mechanisms, neighborhood reputation).
+    1. SAFETY FIRST: Filter recommendations through the lens of ALL these priorities: ${priorityText}. Identify well-lit areas, safe transport, and specific safety checks (e.g., locking mechanisms, neighborhood reputation).
     2. ETHICAL CONSUMPTION: Prioritize minority-owned, women-owned, or community-run businesses. Avoid global chains unless they are the only safe option.
     3. COUNTER BIAS: Explicitly avoid stereotypes. Base safety ratings on recent, factual reports.
-    4. ACCESSIBILITY: If the priority is Accessibility, ensure all locations have ramp access and accessible restrooms.
-    5. TRAVEL STYLE: Tailor the itinerary to the specified travel style (${itineraryType}). For example:
+    4. ACCESSIBILITY: If Accessibility is one of the priorities, ensure all locations have ramp access and accessible restrooms.
+    5. INTERSECTIONAL APPROACH: Consider how these priorities intersect. For example, if both "Solo Female Safety" and "Minority Community Support" are selected, recommend places that are safe for solo female travelers AND support minority communities.
+    6. TRAVEL STYLE: Tailor the itinerary to the specified travel style (${itineraryType}). For example:
        - Trekking/Hiking: Focus on trails, nature spots, and outdoor activities
        - Food Exploration: Highlight local eateries, markets, and culinary experiences
        - Cultural Immersion: Emphasize museums, historical sites, and cultural events
@@ -49,9 +55,9 @@ export const generateEthicalItinerary = async (
     
     FORMAT:
     Return the response in clean Markdown.
-    Start with a "Safety & Ethics Briefing" specific to ${destination} and ${priority}.
+    Start with a "Safety & Ethics Briefing" specific to ${destination} and these priorities: ${priorityText}.
     Then list Day 1, Day 2, etc.
-    For each recommendation, explain *why* it is safe/ethical and how it aligns with the ${itineraryType} style.
+    For each recommendation, explain *why* it is safe/ethical and how it addresses the selected priorities and aligns with the ${itineraryType} style.
   `;
 
   try {
